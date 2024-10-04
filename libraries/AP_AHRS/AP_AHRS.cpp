@@ -1761,6 +1761,59 @@ bool AP_AHRS::get_relative_position_NED_home(Vector3f &vec) const
     return true;
 }
 
+bool AP_AHRS::get_relative_position_NED_cov_origin(float *const covariance, const int array_size) const
+{
+    if (array_size != 45)
+    {
+        return false;
+    }
+
+    switch (active_EKF_type())
+    {
+#if AP_AHRS_DCM_ENABLED
+    case EKFType::DCM:
+    {
+        return false;
+    }
+#endif
+
+#if HAL_NAVEKF2_AVAILABLE
+    case EKFType::TWO:
+    {
+        return false;
+    }
+#endif
+
+#if HAL_NAVEKF3_AVAILABLE
+    case EKFType::THREE:
+    {
+
+        if (EKF3.getPosVelAccelCovUpperTriangle(covariance))
+        {
+            return true;
+        }
+        return false;
+    }
+#endif
+
+#if AP_AHRS_SIM_ENABLED
+    case EKFType::SIM:
+    {
+        return false;
+    }
+#endif
+
+#if AP_AHRS_EXTERNAL_ENABLED
+    case EKFType::EXTERNAL:
+    {
+        return false;
+    }
+#endif
+    }
+
+    return false;
+}
+
 /*
   return a relative position estimate from the origin in meters
 */
@@ -3524,6 +3577,60 @@ bool AP_AHRS::get_location(Location &loc) const
     return state.location_ok;
 }
 
+// get current location covariance
+bool AP_AHRS::get_location_cov(float *covariance, int array_size) const
+{
+    if (array_size != 36)
+    {
+        return false;
+    }
+
+    switch (active_EKF_type())
+    {
+#if AP_AHRS_DCM_ENABLED
+    case EKFType::DCM:
+    {
+        return false;
+    }
+#endif
+
+#if HAL_NAVEKF2_AVAILABLE
+    case EKFType::TWO:
+    {
+        return false;
+    }
+#endif
+
+#if HAL_NAVEKF3_AVAILABLE
+    case EKFType::THREE:
+    {
+
+        if (EKF3.getPosVelCov(covariance))
+        {
+            return true;
+        }
+        return false;
+    }
+#endif
+
+#if AP_AHRS_SIM_ENABLED
+    case EKFType::SIM:
+    {
+        return false;
+    }
+#endif
+
+#if AP_AHRS_EXTERNAL_ENABLED
+    case EKFType::EXTERNAL:
+    {
+        return false;
+    }
+#endif
+    }
+
+    return false;
+}
+
 // return a wind estimation vector, in m/s; returns 0,0,0 on failure
 bool AP_AHRS::wind_estimate(Vector3f &wind) const
 {
@@ -3569,6 +3676,68 @@ bool AP_AHRS::get_quaternion(Quaternion &quat) const
 {
     quat = state.quat;
     return state.quat_ok;
+}
+
+// Apply covariance propagation from quaternions to euler angles found in:
+// `Development of a Real-Time Attitude System Using a Quaternion Parameterization and
+// Non-Dedicated GPS Receivers` pg. 69
+bool AP_AHRS::get_roll_pitch_yaw_covariance(float *const covariance, int array_size) const
+{
+    if (array_size != 9)
+    {
+        return false;
+    }
+
+    if (!state.quat_ok)
+    {
+        return false;
+    }
+
+    switch (active_EKF_type())
+    {
+#if AP_AHRS_DCM_ENABLED
+    case EKFType::DCM:
+    {
+        return false;
+    }
+#endif
+
+#if HAL_NAVEKF2_AVAILABLE
+    case EKFType::TWO:
+    {
+        return false;
+    }
+#endif
+
+#if HAL_NAVEKF3_AVAILABLE
+    case EKFType::THREE:
+    {
+        Quaternion quat = state.quat;
+
+        if (EKF3.getRollPitchYawCov(covariance, quat))
+        {
+            return true;
+        }
+        return false;
+    }
+#endif
+
+#if AP_AHRS_SIM_ENABLED
+    case EKFType::SIM:
+    {
+        return false;
+    }
+#endif
+
+#if AP_AHRS_EXTERNAL_ENABLED
+    case EKFType::EXTERNAL:
+    {
+        return false;
+    }
+#endif
+    }
+
+    return false;
 }
 
 // returns the inertial navigation origin in lat/lon/alt

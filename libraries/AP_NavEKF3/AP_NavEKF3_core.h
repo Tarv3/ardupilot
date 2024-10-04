@@ -153,6 +153,22 @@ public:
     // If false returned, do not use for flight control
     bool getPosNE(Vector2f &posNE) const;
 
+    // Write the last calculated upper triangle covariance matrix for position, velocity
+    // and acceleration. The state is in the form [x y z vx vy vz ax ay az]
+    bool getPosVelAccelCovUpperTriangle(float *const covariance) const;
+
+    // Write the last calculated covariance matrix for position and velocity.
+    // The state is in the form [x y z vx vy vz]
+    bool getPosVelCov(float *const covariance) const;
+
+    // Write the last calculated upper triangle covariance matrix for rotation quaternion
+    // and acceleration. The state is in the form [w x y z]
+    bool getQuatCovUpperTriangle(float *const covariance) const;
+
+    // Write the last calculated covariance matrix for roll pitch yaw.
+    // The state is in the form [roll pitch yaw]
+    bool getRollPitchYawCov(float *const covariance, Quaternion quat) const;
+
     // get position D from local origin
     bool getPosD_local(float &posD) const;
 
