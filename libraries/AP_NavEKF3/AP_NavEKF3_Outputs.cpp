@@ -256,6 +256,192 @@ bool NavEKF3_core::getPosNE(Vector2f &posNE) const
     return false;
 }
 
+
+// Write the last estimated upper triangle covariance of the position velocity and
+// acceleration. Return true if the estimate is valid
+// The output will have the diagonal variances of [x, y, z, vx, vy, vz, ax, ay, az]
+bool NavEKF3_core::getPosVelAccelCovUpperTriangle(float *const covariance) const
+{
+
+    int output_to_input[6] = {7, 8, 9, 4, 5, 6};
+
+    // There are three modes of operation, absolute position (GPS fusion), relative position (optical flow fusion) and constant position (no position estimate available)
+    if (PV_AidingMode != AID_NONE)
+    {
+        // TODO: I dont know if this matters for covariance, I would assume not
+        // This is the normal mode of operation where we can use the EKF position states
+        // correct for the IMU offset (EKF calculations are at the IMU)
+        int output_idx = 0;
+
+        // Covariance does not contain acceleration, so we skip it
+        for (int row = 0; row < 6; ++row)
+        {
+            int row_input = output_to_input[row];
+
+            for (int col = row; col < 6; ++col)
+            {
+                int col_input = output_to_input[col];
+                covariance[output_idx] = (float)P[row_input][col_input];
+                output_idx += 1;
+            }
+
+            // Fill the offdiagonals corresponding to acceleration with zeros
+            for (int col = 6; col < 9; ++col)
+            {
+                covariance[output_idx] = 0.0;
+                output_idx += 1;
+            }
+        }
+
+        // Fill the remaining acceleration portion with zeros
+        for (int i = output_idx; i < 45; ++i)
+        {
+            covariance[i] = 0.0;
+        }
+
+        return true;
+    }
+
+    return false;
+}
+
+// Write the last calculated covariance matrix for position and velocity
+// The state is in the form [x y z vx vy vz]
+bool NavEKF3_core::getPosVelCov(float *const covariance) const
+{
+    int output_to_input[6] = {7, 8, 9, 4, 5, 6};
+
+    // There are three modes of operation, absolute position (GPS fusion), relative position (optical flow fusion) and constant position (no position estimate available)
+    if (PV_AidingMode != AID_NONE)
+    {
+        // TODO: I dont know if this matters for covariance, I would assume not
+        // This is the normal mode of operation where we can use the EKF position states
+        // correct for the IMU offset (EKF calculations are at the IMU)
+        int output_idx = 0;
+
+        for (int row = 0; row < 6; ++row)
+        {
+            int row_input = output_to_input[row];
+
+            for (int col = 0; col < 6; ++col)
+            {
+                int col_input = output_to_input[col];
+                covariance[output_idx] = (float)P[row_input][col_input];
+                output_idx += 1;
+            }
+        }
+
+        return true;
+    }
+
+    return false;
+}
+
+bool NavEKF3_core::getQuatCovUpperTriangle(float *const covariance) const
+{
+    // Quaternion form [w x y z]
+
+    if (PV_AidingMode != AID_NONE)
+    {
+        int idx = 0;
+
+        for (int row = 0; row < 4; ++row)
+        {
+            for (int col = row; col < 4; ++col)
+            {
+                covariance[idx] = (float)P[row][col];
+                idx += 1;
+            }
+        }
+
+        return true;
+    }
+
+    return false;
+}
+
+// Write the last estimated 9x9 covariance of the position velocity and
+// acceleration. Return true if the estimate is valid
+// The output will have the diagonal variances of [roll, pitch, yaw]
+bool NavEKF3_core::getRollPitchYawCov(float *const covariance, Quaternion quat) const
+{
+    if (PV_AidingMode != AID_NONE)
+    {
+        // Quaternion form [w x y z]
+        float quaternion_cov[4][4];
+
+        for (int row = 0; row < 4; ++row)
+        {
+            for (int col = 0; col < 4; ++col)
+            {
+                quaternion_cov[row][col] = (float)P[row][col];
+            }
+        }
+
+        // This is the normal mode of operation where we can use the EKF covariance
+        float w = quat.q1;
+        float x = quat.q2;
+        float y = quat.q3;
+        float z = quat.q4;
+
+        float wpx = w + x;
+        float wmx = w - x;
+
+        float zpy = y + z;
+        float zmy = z - y;
+
+        float p_denom = 1.0 / (zpy * zpy + wpx * wpx);
+        float m_denom = 1.0 / (zmy * zmy + wmx * wmx);
+
+        float yz_p_wx = y * z + w * x;
+        float pitch_denom = 2.0 / sqrt(1.0 - 4.0 * yz_p_wx * yz_p_wx);
+
+        // Compute the quaternion-to-euler jacobian
+        // In row-major order
+        // {
+        //      dR/dw, dR/dx, dR/dy, dR/dz,
+        //      dP/dw, dP/dx, dP/dy, dP/dz,
+        //      dY/dw, dY/dx, dY/dy, dY/dz,
+        // }
+        // "Development of a Real-Time Attitude System Using a Quaternion
+        // Parameterization and Non-Dedicated GPS Receivers" pg. 69-71
+        float jacobian[3][4] = {
+            {-zpy * p_denom + zmy * m_denom,
+             -zpy * p_denom - zmy * m_denom,
+             wpx * p_denom + wmx * m_denom,
+             wpx * p_denom - wmx * m_denom},
+            {x * pitch_denom,
+             w * pitch_denom,
+             z * pitch_denom,
+             y * pitch_denom},
+            {-zpy * p_denom - zmy * m_denom,
+             -zpy * p_denom + zmy * m_denom,
+             wpx * p_denom - wmx * m_denom,
+             wpx * p_denom + wmx * m_denom}};
+
+        // Quaternion covariance left multiplied by the jacobian
+        float j_c[3][4];
+        mat_mul_nmo(&jacobian[0][0], &quaternion_cov[0][0], &j_c[0][0], 3, 4, 4);
+
+        float jacobian_transpose[4][3];
+
+        for (int row = 0; row < 3; ++row)
+        {
+            for (int col = 0; col < 4; ++col)
+            {
+                jacobian_transpose[col][row] = jacobian[row][col];
+            }
+        }
+
+        // Quaternion covariance left multiplied by the jacobian and right multiplied by the jacobian
+        // transpose
+        mat_mul_nmo(&j_c[0][0], &jacobian_transpose[0][0], covariance, 3, 4, 3);
+        return true;
+    }
+
+    return false;
+}
+
 // Write the last calculated D position of the body frame origin relative to the EKF local origin
 // Return true if the estimate is valid
 bool NavEKF3_core::getPosD_local(float &posD) const
