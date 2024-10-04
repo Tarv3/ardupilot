@@ -394,7 +394,7 @@ bool NavEKF3_core::getRollPitchYawCov(float *const covariance, Quaternion quat) 
         float m_denom = 1.0 / (zmy * zmy + wmx * wmx);
 
         float yz_p_wx = y * z + w * x;
-        float pitch_denom = 2.0 / sqrt(1.0 - 4.0 * yz_p_wx * yz_p_wx);
+        float pitch_denom = 2.0 / sqrtF(1.0 - 4.0 * yz_p_wx * yz_p_wx);
 
         // Compute the quaternion-to-euler jacobian
         // In row-major order
