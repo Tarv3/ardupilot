@@ -499,6 +499,10 @@ static const ap_message STREAM_RC_CHANNELS_msgs[] = {
 };
 static const ap_message STREAM_EXTRA1_msgs[] = {
     MSG_ATTITUDE,
+    MSG_ATTITUDE_QUATERNION_COV,
+    MSG_LOCATION_COV,
+    MSG_LOCAL_POSITION_COV,
+#if AP_SIM_ENABLED
     MSG_SIMSTATE,
     MSG_AHRS2,
     MSG_PID_TUNING // Up to four PID_TUNING messages are sent, depending on GCS_PID_MASK parameter

@@ -867,6 +867,15 @@ ap_message GCS_MAVLINK::mavlink_id_to_ap_message_id(const uint32_t mavlink_id) c
         { MAVLINK_MSG_ID_SIMSTATE,              MSG_SIMSTATE},
         { MAVLINK_MSG_ID_SIM_STATE,             MSG_SIM_STATE},
         { MAVLINK_MSG_ID_AHRS2,                 MSG_AHRS2},
+        { MAVLINK_MSG_ID_ATTITUDE,              MSG_ATTITUDE},
+        { MAVLINK_MSG_ID_ATTITUDE_QUATERNION,   MSG_ATTITUDE_QUATERNION},
+        { MAVLINK_MSG_ID_ATTITUDE_QUATERNION_COV,   MSG_ATTITUDE_QUATERNION_COV},
+        { MAVLINK_MSG_ID_GLOBAL_POSITION_INT,   MSG_LOCATION},
+        { MAVLINK_MSG_ID_GLOBAL_POSITION_INT_COV,   MSG_LOCATION_COV},
+        { MAVLINK_MSG_ID_LOCAL_POSITION_NED,    MSG_LOCAL_POSITION},
+        { MAVLINK_MSG_ID_LOCAL_POSITION_NED_COV,    MSG_LOCAL_POSITION_COV},
+        { MAVLINK_MSG_ID_VFR_HUD,               MSG_VFR_HUD},
+#endif
         { MAVLINK_MSG_ID_HWSTATUS,              MSG_HWSTATUS},
         { MAVLINK_MSG_ID_WIND,                  MSG_WIND},
         { MAVLINK_MSG_ID_RANGEFINDER,           MSG_RANGEFINDER},
@@ -2444,6 +2453,46 @@ void GCS_MAVLINK::send_local_position() const
         velocity.x,
         velocity.y,
         velocity.z);
+}
+
+void GCS_MAVLINK::send_local_position_cov() const
+{
+#if AP_AHRS_ENABLED
+    const AP_AHRS &ahrs = AP::ahrs();
+
+    Vector3f local_position, velocity, acceleration;
+
+    bool success = ahrs.get_relative_position_NED_origin(local_position);
+    success &= ahrs.get_velocity_NED(velocity);
+
+    if (!success)
+    {
+        // we don't know the position, velocity, or covariance
+        return;
+    }
+
+    float covariance[45];
+    if (!ahrs.get_relative_position_NED_cov_origin(&covariance[0], 45))
+    {
+        memset(&covariance[0], 0, sizeof(covariance));
+        covariance[0] = std::numeric_limits<float>::signaling_NaN();
+    }
+
+    mavlink_msg_local_position_ned_cov_send(
+        chan,
+        AP_HAL::millis(),
+        MAV_ESTIMATOR_TYPE_GPS_INS,
+        local_position.x,
+        local_position.y,
+        local_position.z,
+        velocity.x,
+        velocity.y,
+        velocity.z,
+        acceleration.x,
+        acceleration.y,
+        acceleration.z,
+        &covariance[0]);
+#endif
 }
 
 /*
@@ -4953,10 +5002,47 @@ void GCS_MAVLINK::send_attitude_quaternion() const
         );
 }
 
-int32_t GCS_MAVLINK::global_position_int_alt() const {
+void GCS_MAVLINK::send_attitude_quaternion_cov() const
+{
+#if AP_AHRS_ENABLED
+    const AP_AHRS &ahrs = AP::ahrs();
+    Quaternion quat;
+
+    bool success = ahrs.get_quaternion(quat);
+
+    if (!success)
+    {
+        return;
+    }
+
+    float covariance[9];
+    if (!ahrs.get_roll_pitch_yaw_covariance(covariance, 9))
+    {
+        memset(&covariance[0], 0, sizeof(covariance));
+        covariance[0] = std::numeric_limits<float>::signaling_NaN();
+    }
+
+    const Vector3f omega = ahrs.get_gyro();
+    float quat_arr[4] = {quat.q1, quat.q2, quat.q3, quat.q4};
+
+    mavlink_msg_attitude_quaternion_cov_send(
+        chan,
+        AP_HAL::millis(),
+        quat_arr,
+        omega.x, // rollspeed
+        omega.y, // pitchspeed
+        omega.z, // yawspeed
+        covariance);
+#endif
+}
+
+int32_t GCS_MAVLINK::global_position_int_alt() const
+{
     return global_position_current_loc.alt * 10UL;
 }
-int32_t GCS_MAVLINK::global_position_int_relative_alt() const {
+int32_t GCS_MAVLINK::global_position_int_relative_alt() const
+{
+#if AP_AHRS_ENABLED
     float posD;
     AP::ahrs().get_relative_position_D_home(posD);
     posD *= -1000.0f; // change from down to up and metres to millimeters
@@ -4969,21 +5055,59 @@ void GCS_MAVLINK::send_global_position_int()
     UNUSED_RESULT(ahrs.get_location(global_position_current_loc)); // return value ignored; we send stale data
 
     Vector3f vel;
-    if (!ahrs.get_velocity_NED(vel)) {
+    if (!ahrs.get_velocity_NED(vel))
+    {
         vel.zero();
     }
 
     mavlink_msg_global_position_int_send(
         chan,
         AP_HAL::millis(),
-        global_position_current_loc.lat, // in 1E7 degrees
-        global_position_current_loc.lng, // in 1E7 degrees
-        global_position_int_alt(),       // millimeters above ground/sea level
+        global_position_current_loc.lat,    // in 1E7 degrees
+        global_position_current_loc.lng,    // in 1E7 degrees
+        global_position_int_alt(),          // millimeters above ground/sea level
         global_position_int_relative_alt(), // millimeters above home
-        vel.x * 100,                     // X speed cm/s (+ve North)
-        vel.y * 100,                     // Y speed cm/s (+ve East)
-        vel.z * 100,                     // Z speed cm/s (+ve Down)
-        ahrs.yaw_sensor);                // compass heading in 1/100 degree
+        vel.x * 100,                        // X speed cm/s (+ve North)
+        vel.y * 100,                        // Y speed cm/s (+ve East)
+        vel.z * 100,                        // Z speed cm/s (+ve Down)
+        ahrs.yaw_sensor);                   // compass heading in 1/100 degree
+#endif                                      // AP_AHRS_ENABLED
+}
+
+void GCS_MAVLINK::send_global_position_int_cov()
+{
+#if AP_AHRS_ENABLED
+    AP_AHRS &ahrs = AP::ahrs();
+
+    UNUSED_RESULT(ahrs.get_location(global_position_current_loc)); // return value ignored; we send stale data
+
+    Vector3f vel;
+
+    if (!ahrs.get_velocity_NED(vel))
+    {
+        vel.zero();
+    }
+
+    float covariance[36];
+    if (!ahrs.get_location_cov(covariance, 36))
+    {
+        memset(covariance, 0, sizeof(covariance));
+        covariance[0] = std::numeric_limits<float>::signaling_NaN();
+    }
+
+    mavlink_msg_global_position_int_cov_send(
+        chan,
+        AP_HAL::millis(),
+        MAV_ESTIMATOR_TYPE_GPS_INS,
+        global_position_current_loc.lat,    // in 1E7 degrees
+        global_position_current_loc.lng,    // in 1E7 degrees
+        global_position_int_alt(),          // millimeters above ground/sea level
+        global_position_int_relative_alt(), // millimeters above home
+        vel.x * 100,                        // X speed cm/s (+ve North)
+        vel.y * 100,                        // Y speed cm/s (+ve East)
+        vel.z * 100,                        // Z speed cm/s (+ve Down)
+        &covariance[0]);                    // 6x6 Covariance [x y z vx vy vz]
+#endif                                      // AP_AHRS_ENABLED
 }
 
 void GCS_MAVLINK::send_gimbal_report() const
@@ -5142,6 +5266,11 @@ bool GCS_MAVLINK::try_send_message(const enum ap_message id)
         send_attitude_quaternion();
         break;
 
+    case MSG_ATTITUDE_QUATERNION_COV:
+        CHECK_PAYLOAD_SIZE(ATTITUDE_QUATERNION_COV);
+        send_attitude_quaternion_cov();
+        break;
+
     case MSG_NEXT_PARAM:
         CHECK_PAYLOAD_SIZE(PARAM_VALUE);
         queued_param_send();
@@ -5166,6 +5295,12 @@ bool GCS_MAVLINK::try_send_message(const enum ap_message id)
     case MSG_LOCATION:
         CHECK_PAYLOAD_SIZE(GLOBAL_POSITION_INT);
         send_global_position_int();
+        break;
+
+#if AP_AHRS_ENABLED
+    case MSG_LOCATION_COV:
+        CHECK_PAYLOAD_SIZE(GLOBAL_POSITION_INT_COV);
+        send_global_position_int_cov();
         break;
 
     case MSG_HOME:
@@ -5275,6 +5410,11 @@ bool GCS_MAVLINK::try_send_message(const enum ap_message id)
     case MSG_MOUNT_STATUS:
         CHECK_PAYLOAD_SIZE(MOUNT_STATUS);
         send_mount_status();
+        break;
+
+    case MSG_LOCAL_POSITION_COV:
+        CHECK_PAYLOAD_SIZE(LOCAL_POSITION_NED_COV);
+        send_local_position_cov();
         break;
 
     case MSG_OPTICAL_FLOW:

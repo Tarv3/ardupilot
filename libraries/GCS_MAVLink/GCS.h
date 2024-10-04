@@ -298,9 +298,11 @@ public:
 #endif
     virtual void send_attitude() const;
     virtual void send_attitude_quaternion() const;
+    virtual void send_attitude_quaternion_cov() const;
     void send_autopilot_version() const;
     void send_extended_sys_state() const;
     void send_local_position() const;
+    void send_local_position_cov() const;
     void send_vfr_hud();
     void send_vibration() const;
     void send_mount_status() const;
@@ -583,6 +585,7 @@ protected:
     // vehicle-overridable message send function
     virtual bool try_send_message(enum ap_message id);
     virtual void send_global_position_int();
+    virtual void send_global_position_int_cov();
 
     // message sending functions:
     bool try_send_mission_message(enum ap_message id);

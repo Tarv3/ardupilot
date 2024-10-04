@@ -111,6 +111,9 @@ public:
         return get_location(loc);
     }
 
+    // Get current location [x, y, z, vx, vy, vz] covariance.
+    bool get_location_cov(float *covariance, int array_size) const;
+
     // get latest altitude estimate above ground level in meters and validity flag
     bool get_hagl(float &hagl) const WARN_IF_UNUSED;
 
@@ -183,6 +186,9 @@ public:
     // return the quaternion defining the rotation from NED to XYZ (body) axes
     bool get_quaternion(Quaternion &quat) const WARN_IF_UNUSED;
 
+    // return the covariance of roll pitch yaw defining the rotation from NED to XYZ (body) axes
+    bool get_roll_pitch_yaw_covariance(float *const covariance, int array_size) const WARN_IF_UNUSED;
+
     // return secondary attitude solution if available, as eulers in radians
     bool get_secondary_attitude(Vector3f &eulers) const;
 
@@ -223,6 +229,11 @@ public:
     // return true if the estimate is valid
     bool get_relative_position_NED_home(Vector3f &vec) const WARN_IF_UNUSED;
     bool get_relative_position_NED_origin(Vector3f &vec) const WARN_IF_UNUSED;
+    
+    // return the covariance of the relative position NED from the origin
+    // State is [x y z vx vy vz ax ay az]
+    // return true if the estimate is valid
+    bool get_relative_position_NED_cov_origin(float * const covariance, const int array_size) const WARN_IF_UNUSED;
 
     // return the relative position NE to either home or origin
     // return true if the estimate is valid

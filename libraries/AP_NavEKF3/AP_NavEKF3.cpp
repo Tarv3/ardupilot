@@ -1163,6 +1163,42 @@ bool NavEKF3::getPosNE(int8_t instance, Vector2f &posNE) const
     return core[instance].getPosNE(posNE);
 }
 
+// Write the last calculated upper triangle covariance matrix for position, velocity
+// and acceleration. The state is in the form [x y z vx vy vz ax ay az]
+bool NavEKF3::getPosVelAccelCovUpperTriangle(float * const covariance) const 
+{
+    if (!core) {
+        return false;
+    }
+    return core[primary].getPosVelAccelCovUpperTriangle(covariance);
+}
+
+// Write the last calculated covariance matrix for position and velocity.
+// The state is in the form [x y z vx vy vz]
+bool NavEKF3::getPosVelCov(float * const covariance) const {
+    if (!core) {
+        return false;
+    }
+    return core[primary].getPosVelCov(covariance);
+}
+
+bool NavEKF3::getQuatCovUpperTriangle(float * const covariance) const 
+{
+    if (!core) {
+        return false;
+    }
+    return core[primary].getQuatCovUpperTriangle(covariance);
+}
+
+
+bool NavEKF3::getRollPitchYawCov(float * const covariance, Quaternion quat) const 
+{
+    if (!core) {
+        return false;
+    }
+    return core[primary].getRollPitchYawCov(covariance, quat);
+}
+
 // Write the last calculated D position relative to the reference point (m).
 // If a calculated solution is not available, use the best available data and return false
 // If false returned, do not use for flight control
