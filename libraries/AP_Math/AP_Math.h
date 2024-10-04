@@ -113,6 +113,11 @@ float safe_sqrt(const T v);
 template <typename T>
 void mat_mul(const T *A, const T *B, T *C, uint16_t n);
 
+// matrix multiplication of NxM and MxO matrices
+template <typename T>
+void mat_mul_nmo(const T *A, const T *B, T *C, uint16_t n, uint16_t m, uint16_t o);
+
+
 // matrix inverse
 template <typename T>
 bool mat_inverse(const T *x, T *y, uint16_t dim) WARN_IF_UNUSED;
