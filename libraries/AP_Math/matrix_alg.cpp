@@ -457,6 +457,28 @@ void mat_mul(const T *A, const T *B, T *C, uint16_t n)
     }
 }
 
+// matrix multiplication of NxM and MxO
+template <typename T>
+void mat_mul_nmo(const T *A, const T *B, T *C, uint16_t n, uint16_t m, uint16_t o)
+{
+    memset(C, 0, sizeof(T) * n * o);
+    for (uint16_t row = 0; row < n; row++)
+    {
+        for (uint16_t col = 0; col < o; col++)
+        {
+            for (uint16_t i = 0; i < m; i++)
+            {
+                uint16_t out_idx = row * o + col;
+
+                uint16_t left_in_idx = row * m + i;
+                uint16_t right_in_idx = i * o + col;
+
+                C[out_idx] += A[left_in_idx] * B[right_in_idx];
+            }
+        }
+    }
+}
+
 template <typename T>
 void mat_identity(T *A, uint16_t n)
 {
@@ -468,8 +490,10 @@ void mat_identity(T *A, uint16_t n)
 
 template bool mat_inverse<float>(const float x[], float y[], uint16_t dim);
 template void mat_mul<float>(const float *A, const float *B, float *C, uint16_t n);
+template void mat_mul_nmo<float>(const float *A, const float *B, float *C, uint16_t n, uint16_t m, uint16_t o);
 template void mat_identity<float>(float x[], uint16_t dim);
 
 template bool mat_inverse<double>(const double x[], double y[], uint16_t dim);
 template void mat_mul<double>(const double *A, const double *B, double *C, uint16_t n);
+template void mat_mul_nmo<double>(const double *A, const double *B, double *C, uint16_t n, uint16_t m, uint16_t o);
 template void mat_identity<double>(double x[], uint16_t dim);
