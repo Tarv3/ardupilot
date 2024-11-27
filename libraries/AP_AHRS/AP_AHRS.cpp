@@ -1621,12 +1621,6 @@ bool AP_AHRS::get_relative_position_NED_cov_origin(float *const covariance, cons
 
     switch (active_EKF_type())
     {
-#if AP_AHRS_DCM_ENABLED
-    case EKFType::DCM:
-    {
-        return false;
-    }
-#endif
 
 #if HAL_NAVEKF2_AVAILABLE
     case EKFType::TWO:
@@ -1654,12 +1648,15 @@ bool AP_AHRS::get_relative_position_NED_cov_origin(float *const covariance, cons
     }
 #endif
 
-#if AP_AHRS_EXTERNAL_ENABLED
     case EKFType::EXTERNAL:
     {
         return false;
     }
-#endif
+
+    case EKFType::NONE:
+    {
+        return false;
+    }
     }
 
     return false;
@@ -3271,11 +3268,11 @@ const EKFGSF_yaw *AP_AHRS::get_yaw_estimator(void) const
 }
 
 // get current location estimate
-bool AP_AHRS::get_location(Location &loc) const
-{
-    loc = state.location;
-    return state.location_ok;
-}
+// bool AP_AHRS::get_location(Location &loc) const
+// {
+//     loc = state.location;
+//     return state.location_ok;
+// }
 
 // get current location covariance
 bool AP_AHRS::get_location_cov(float *covariance, int array_size) const
@@ -3287,12 +3284,6 @@ bool AP_AHRS::get_location_cov(float *covariance, int array_size) const
 
     switch (active_EKF_type())
     {
-#if AP_AHRS_DCM_ENABLED
-    case EKFType::DCM:
-    {
-        return false;
-    }
-#endif
 
 #if HAL_NAVEKF2_AVAILABLE
     case EKFType::TWO:
@@ -3320,87 +3311,85 @@ bool AP_AHRS::get_location_cov(float *covariance, int array_size) const
     }
 #endif
 
-#if AP_AHRS_EXTERNAL_ENABLED
     case EKFType::EXTERNAL:
     {
         return false;
     }
-#endif
+    
+    case EKFType::NONE: 
+    {
+        return false;
+    }
     }
 
     return false;
 }
 
 // return a wind estimation vector, in m/s; returns 0,0,0 on failure
-bool AP_AHRS::wind_estimate(Vector3f &wind) const
-{
-    wind = state.wind_estimate;
-    return state.wind_estimate_ok;
-}
+// bool AP_AHRS::wind_estimate(Vector3f &wind) const
+// {
+//     wind = state.wind_estimate;
+//     return state.wind_estimate_ok;
+// }
 
 // return an airspeed estimate if available. return true
 // if we have an estimate
-bool AP_AHRS::airspeed_estimate(float &airspeed_ret) const
-{
-    airspeed_ret = state.airspeed;
-    return state.airspeed_ok;
-}
+// bool AP_AHRS::airspeed_estimate(float &airspeed_ret) const
+// {
+//     airspeed_ret = state.airspeed;
+//     return state.airspeed_ok;
+// }
 
 // return an airspeed estimate if available. return true
 // if we have an estimate
-bool AP_AHRS::airspeed_estimate(float &airspeed_ret, AP_AHRS::AirspeedEstimateType &type) const
-{
-    airspeed_ret = state.airspeed;
-    type = state.airspeed_estimate_type;
-    return state.airspeed_ok;
-}
+// bool AP_AHRS::airspeed_estimate(float &airspeed_ret, AP_AHRS::AirspeedEstimateType &type) const
+// {
+//     airspeed_ret = state.airspeed;
+//     type = state.airspeed_estimate_type;
+//     return state.airspeed_ok;
+// }
 
 // return a true airspeed estimate (navigation airspeed) if
 // available. return true if we have an estimate
-bool AP_AHRS::airspeed_estimate_true(float &airspeed_ret) const
-{
-    airspeed_ret = state.airspeed_true;
-    return state.airspeed_true_ok;
-}
+// bool AP_AHRS::airspeed_estimate_true(float &airspeed_ret) const
+// {
+//     airspeed_ret = state.airspeed_true;
+//     return state.airspeed_true_ok;
+// }
 
 // return estimate of true airspeed vector in body frame in m/s
 // returns false if estimate is unavailable
-bool AP_AHRS::airspeed_vector_true(Vector3f &vec) const
-{
-    vec = state.airspeed_vec;
-    return state.airspeed_vec_ok;
-}
+// bool AP_AHRS::airspeed_vector_true(Vector3f &vec) const
+// {
+//     vec = state.airspeed_vec;
+//     return state.airspeed_vec_ok;
+// }
 
 // return the quaternion defining the rotation from NED to XYZ (body) axes
-bool AP_AHRS::get_quaternion(Quaternion &quat) const
-{
-    quat = state.quat;
-    return state.quat_ok;
-}
+// bool AP_AHRS::get_quaternion(Quaternion &quat) const
+// {
+//     quat = state.quat;
+//     return state.quat_ok;
+// }
 
 // Apply covariance propagation from quaternions to euler angles found in:
 // `Development of a Real-Time Attitude System Using a Quaternion Parameterization and
 // Non-Dedicated GPS Receivers` pg. 69
 bool AP_AHRS::get_roll_pitch_yaw_covariance(float *const covariance, int array_size) const
 {
-    if (array_size != 9)
+    Quaternion quat;
+    if (!get_quaternion(quat)) 
     {
         return false;
     }
 
-    if (!state.quat_ok)
+    if (array_size != 9)
     {
         return false;
     }
 
     switch (active_EKF_type())
     {
-#if AP_AHRS_DCM_ENABLED
-    case EKFType::DCM:
-    {
-        return false;
-    }
-#endif
 
 #if HAL_NAVEKF2_AVAILABLE
     case EKFType::TWO:
@@ -3412,8 +3401,6 @@ bool AP_AHRS::get_roll_pitch_yaw_covariance(float *const covariance, int array_s
 #if HAL_NAVEKF3_AVAILABLE
     case EKFType::THREE:
     {
-        Quaternion quat = state.quat;
-
         if (EKF3.getRollPitchYawCov(covariance, quat))
         {
             return true;
@@ -3429,56 +3416,61 @@ bool AP_AHRS::get_roll_pitch_yaw_covariance(float *const covariance, int array_s
     }
 #endif
 
-#if AP_AHRS_EXTERNAL_ENABLED
+// #if AP_AHRS_EXTERNAL_ENABLED
     case EKFType::EXTERNAL:
     {
         return false;
     }
-#endif
+// #endif
+
+    case EKFType::NONE:
+    {
+        return false;
+    }
     }
 
     return false;
 }
 
 // returns the inertial navigation origin in lat/lon/alt
-bool AP_AHRS::get_origin(Location &ret) const
-{
-    ret = state.origin;
-    return state.origin_ok;
-}
+// bool AP_AHRS::get_origin(Location &ret) const
+// {
+//     ret = state.origin;
+//     return state.origin_ok;
+// }
 
 // return a ground velocity in meters/second, North/East/Down
 // order. Must only be called if have_inertial_nav() is true
-bool AP_AHRS::get_velocity_NED(Vector3f &vec) const
-{
-    vec = state.velocity_NED;
-    return state.velocity_NED_ok;
-}
+// bool AP_AHRS::get_velocity_NED(Vector3f &vec) const
+// {
+//     vec = state.velocity_NED;
+//     return state.velocity_NED_ok;
+// }
 
 // return location corresponding to vector relative to the
 // vehicle's origin
-bool AP_AHRS::get_location_from_origin_offset(Location &loc, const Vector3p &offset_ned) const
-{
-    if (!get_origin(loc)) {
-        return false;
-    }
-    loc.offset(offset_ned);
+// bool AP_AHRS::get_location_from_origin_offset(Location &loc, const Vector3p &offset_ned) const
+// {
+//     if (!get_origin(loc)) {
+//         return false;
+//     }
+//     loc.offset(offset_ned);
 
-    return true;
-}
+//     return true;
+// }
 
 // return location corresponding to vector relative to the
 // vehicle's home location
-bool AP_AHRS::get_location_from_home_offset(Location &loc, const Vector3p &offset_ned) const
-{
-    if (!home_is_set()) {
-        return false;
-    }
-    loc = get_home();
-    loc.offset(offset_ned);
+// bool AP_AHRS::get_location_from_home_offset(Location &loc, const Vector3p &offset_ned) const
+// {
+//     if (!home_is_set()) {
+//         return false;
+//     }
+//     loc = get_home();
+//     loc.offset(offset_ned);
 
-    return true;
-}
+//     return true;
+// }
 
 // singleton instance
 AP_AHRS *AP_AHRS::_singleton;

@@ -2456,7 +2456,6 @@ void GCS_MAVLINK::send_local_position() const
 
 void GCS_MAVLINK::send_local_position_cov() const
 {
-#if AP_AHRS_ENABLED
     const AP_AHRS &ahrs = AP::ahrs();
 
     Vector3f local_position, velocity, acceleration;
@@ -2491,7 +2490,6 @@ void GCS_MAVLINK::send_local_position_cov() const
         acceleration.y,
         acceleration.z,
         &covariance[0]);
-#endif
 }
 
 /*
@@ -5003,7 +5001,6 @@ void GCS_MAVLINK::send_attitude_quaternion() const
 
 void GCS_MAVLINK::send_attitude_quaternion_cov() const
 {
-#if AP_AHRS_ENABLED
     const AP_AHRS &ahrs = AP::ahrs();
     Quaternion quat;
 
@@ -5032,7 +5029,6 @@ void GCS_MAVLINK::send_attitude_quaternion_cov() const
         omega.y, // pitchspeed
         omega.z, // yawspeed
         covariance);
-#endif
 }
 
 int32_t GCS_MAVLINK::global_position_int_alt() const
@@ -5041,7 +5037,6 @@ int32_t GCS_MAVLINK::global_position_int_alt() const
 }
 int32_t GCS_MAVLINK::global_position_int_relative_alt() const
 {
-#if AP_AHRS_ENABLED
     float posD;
     AP::ahrs().get_relative_position_D_home(posD);
     posD *= -1000.0f; // change from down to up and metres to millimeters
@@ -5070,12 +5065,10 @@ void GCS_MAVLINK::send_global_position_int()
         vel.y * 100,                        // Y speed cm/s (+ve East)
         vel.z * 100,                        // Z speed cm/s (+ve Down)
         ahrs.yaw_sensor);                   // compass heading in 1/100 degree
-#endif                                      // AP_AHRS_ENABLED
 }
 
 void GCS_MAVLINK::send_global_position_int_cov()
 {
-#if AP_AHRS_ENABLED
     AP_AHRS &ahrs = AP::ahrs();
 
     UNUSED_RESULT(ahrs.get_location(global_position_current_loc)); // return value ignored; we send stale data
@@ -5106,7 +5099,6 @@ void GCS_MAVLINK::send_global_position_int_cov()
         vel.y * 100,                        // Y speed cm/s (+ve East)
         vel.z * 100,                        // Z speed cm/s (+ve Down)
         &covariance[0]);                    // 6x6 Covariance [x y z vx vy vz]
-#endif                                      // AP_AHRS_ENABLED
 }
 
 void GCS_MAVLINK::send_gimbal_report() const
@@ -5296,7 +5288,6 @@ bool GCS_MAVLINK::try_send_message(const enum ap_message id)
         send_global_position_int();
         break;
 
-#if AP_AHRS_ENABLED
     case MSG_LOCATION_COV:
         CHECK_PAYLOAD_SIZE(GLOBAL_POSITION_INT_COV);
         send_global_position_int_cov();
